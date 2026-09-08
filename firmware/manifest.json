@@ -1,6 +1,6 @@
 {
   "name": "Deanex SDC-1",
-  "version": "5.9.0",
+  "version": "5.9.1",
   "home_assistant_domain": "esphome",
   "new_install_prompt_erase": false,
   "builds": [
@@ -8,15 +8,15 @@
       "chipFamily": "ESP32-C3",
       "parts": [
         {
-          "path": "SDC1-v5.9.0.factory.bin",
+          "path": "SDC1-v5.9.1.factory.bin",
           "offset": 0
         }
       ],
       "ota": {
-        "path": "SDC1-v5.9.0.ota.bin",
-        "md5": "53d90ff76fadaa3f404c771288e43e14",
-        "summary": "Firmware update entity and HACS dashboard card",
-        "release_url": "https://github.com/deanex-international/sdc-1/releases/tag/v5.9.0"
+        "path": "SDC1-v5.9.1.ota.bin",
+        "md5": "7b4457177adca6b555a0302e47c3b42b",
+        "summary": "Keyless API encryption; dashboard_import removed",
+        "release_url": "https://github.com/deanex-international/sdc-1/releases/tag/v5.9.1"
       }
     }
   ]
