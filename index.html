@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Install SDC-1</title>
+<script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+<style>
+  :root { color-scheme: light dark; --fg:#101720; --muted:#5b6b7c; --bg:#f6f8fa;
+          --card:#fff; --line:#e2e8ef; --accent:#0b7fd4; }
+  @media (prefers-color-scheme: dark) {
+    :root { --fg:#e8edf3; --muted:#93a3b4; --bg:#0d1319; --card:#151d26;
+            --line:#243141; --accent:#4aa8e8; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:48px 20px; background:var(--bg); color:var(--fg);
+         font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  main { max-width:640px; margin:0 auto; }
+  h1 { font-size:1.9rem; margin:0 0 6px; letter-spacing:-.02em; }
+  .tag { color:var(--muted); margin:0 0 32px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px;
+          padding:24px; margin-bottom:18px; }
+  h2 { font-size:.78rem; text-transform:uppercase; letter-spacing:.08em;
+       color:var(--muted); margin:0 0 14px; }
+  ol { margin:0; padding-left:20px; } li { margin-bottom:8px; }
+  a { color:var(--accent); }
+  .cta { text-align:center; padding:28px 24px; }
+  .note { font-size:.85rem; color:var(--muted); margin-top:14px; }
+  code { background:var(--bg); border:1px solid var(--line); border-radius:5px;
+         padding:1px 5px; font-size:.85em; }
+  .unsupported, .not-allowed { color:var(--muted); font-size:.9rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>SDC-1</h1>
+  <p class="tag">Biometric access controller — fingerprint, face, NFC.</p>
+
+  <div class="card cta">
+    <esp-web-install-button manifest="firmware/manifest.json">
+      <button slot="activate" style="font:inherit;font-weight:600;cursor:pointer;
+        background:var(--accent);color:#fff;border:0;border-radius:10px;padding:13px 28px;">
+        Connect &amp; install
+      </button>
+      <span slot="unsupported" class="unsupported">
+        Your browser cannot flash devices. Use desktop Chrome or Edge.
+      </span>
+      <span slot="not-allowed" class="not-allowed">
+        This page must be served over HTTPS.
+      </span>
+    </esp-web-install-button>
+    <p class="note">Plug the SDC-1 into this computer by USB, then press the button.
+       Wi-Fi setup is offered straight after flashing.</p>
+  </div>
+
+  <div class="card">
+    <h2>Then, in Home Assistant</h2>
+    <ol>
+      <li>Home Assistant discovers the device automatically and offers to add it.
+          Accept, and the encryption key is generated and stored for you.</li>
+      <li>Install the dashboard card: HACS → three dots → <em>Custom repositories</em> →
+          <code>deanex-international/sdc-1</code>, category <em>Dashboard</em>.</li>
+      <li>Add the card to a dashboard: <em>Add card</em> → <em>SDC-1 Access Control</em>.</li>
+    </ol>
+    <p class="note">Firmware updates arrive by themselves — the device checks for new
+       releases and Home Assistant shows an Update entity when one is available.</p>
+  </div>
+
+  <div class="card">
+    <h2>Optional automations</h2>
+    <ol>
+      <li><a href="https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fdeanex-international%2Fsdc-1%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fdeanex%2Fsdc1_doorbell.yaml">Import
+          the doorbell notification blueprint</a></li>
+      <li><a href="https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fdeanex-international%2Fsdc-1%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fdeanex%2Fsdc1_access_alert.yaml">Import
+          the access-alert blueprint</a></li>
+    </ol>
+  </div>
+</main>
+</body>
+</html>

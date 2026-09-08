@@ -1,0 +1,92 @@
+blueprint:
+  name: SDC-1 — Access alerts
+  description: >
+    Notifies on SDC-1 access events. Choose which of the three you care about:
+    a granted unlock, a denied attempt, or the reader entering lockout after
+    repeated failures.
+
+
+    Granted and denied both come from the firmware's single
+    `esphome.sdc1_access` event, so this keeps working regardless of which
+    credential was used.
+  domain: automation
+  author: Deanex International
+  source_url: https://github.com/deanex-international/sdc-1/blob/main/blueprints/automation/deanex/sdc1_access_alert.yaml
+  input:
+    notify_target:
+      name: Notification service
+      description: e.g. notify.mobile_app_your_phone
+      selector:
+        text:
+    notify_granted:
+      name: Notify on successful unlock
+      default: false
+      selector:
+        boolean:
+    notify_denied:
+      name: Notify on denied attempt
+      default: true
+      selector:
+        boolean:
+    lockout_sensor:
+      name: Lockout Active sensor
+      description: The SDC-1 "Lockout Active" binary sensor. Always notified when it triggers.
+      selector:
+        entity:
+          filter:
+            - domain: binary_sensor
+              device_class: problem
+
+mode: queued
+max: 10
+
+triggers:
+  - trigger: event
+    event_type: esphome.sdc1_access
+    id: access
+  - trigger: state
+    entity_id: !input lockout_sensor
+    to: "on"
+    id: lockout
+
+variables:
+  want_granted: !input notify_granted
+  want_denied: !input notify_denied
+
+conditions:
+  - condition: template
+    value_template: >-
+      {% if trigger.id == 'lockout' %}
+        true
+      {% elif trigger.event.data.result == 'granted' %}
+        {{ want_granted }}
+      {% else %}
+        {{ want_denied }}
+      {% endif %}
+
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: lockout
+        sequence:
+          - action: !input notify_target
+            data:
+              title: Door locked out
+              message: >-
+                The SDC-1 has locked out after repeated failed attempts.
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.event.data.result == 'granted' }}"
+        sequence:
+          - action: !input notify_target
+            data:
+              title: Door unlocked
+              message: "Unlocked by {{ trigger.event.data.name }}."
+    default:
+      - action: !input notify_target
+        data:
+          title: Access denied
+          message: >-
+            Denied at the door{% if trigger.event.data.reason %}
+            ({{ trigger.event.data.reason }}){% endif %}.

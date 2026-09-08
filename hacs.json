@@ -1,0 +1,6 @@
+{
+  "name": "SDC-1 Access Control Card",
+  "filename": "sdc1-card.js",
+  "render_readme": true,
+  "homeassistant": "2024.4.0"
+}
