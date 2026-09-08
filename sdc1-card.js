@@ -36,7 +36,9 @@ const WANTED = {
   fpEnroll:        { domain: "button",        re: /_fp_start_enrollment$/ },
   faceEnroll:      { domain: "button",        re: /_face_start_enrollment$/ },
   nfcEnroll:       { domain: "button",        re: /_nfc_link_next_tag$/ },
-  cancelEnroll:    { domain: "button",        re: /_cancel_enrollment$/ },
+  // Firmware <= 5.10.0 called this "Cancel Enrollment"; 5.10.1 renamed it to
+  // "Enroll: Cancel" so it sorts beside the name field. Match either.
+  cancelEnroll:    { domain: "button",        re: /_(cancel_enrollment|enroll_cancel)$/ },
   clearLockout:    { domain: "button",        re: /_clear_lockout$/ },
 };
 
