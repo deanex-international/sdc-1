@@ -12,7 +12,7 @@
  *   prefix: sdc_1      # optional; entity_id prefix, default sdc_1
  */
 
-const VERSION = "1.0.0";
+const VERSION = "1.1.0";
 
 // Entity suffixes this card looks for, keyed by role. Anything not found is
 // simply hidden, so a partially-configured device still renders.
@@ -24,6 +24,9 @@ const WANTED = {
   lastBy:          { domain: "sensor",        re: /_last_unlocked_by$/ },
   lastAt:          { domain: "sensor",        re: /_last_unlocked_at$/ },
   people:          { domain: "sensor",        re: /_enrolled_people$/ },
+  peopleFp:        { domain: "sensor",        re: /_fingerprint_users$/ },
+  peopleFace:      { domain: "sensor",        re: /_face_id_users$/ },
+  peopleNfc:       { domain: "sensor",        re: /_nfc_users$/ },
   peopleCount:     { domain: "sensor",        re: /_registered_people$/ },
   dbUsage:         { domain: "sensor",        re: /_database_usage$/ },
   lockoutStatus:   { domain: "sensor",        re: /_lockout_status$/ },
@@ -37,6 +40,15 @@ const WANTED = {
   clearLockout:    { domain: "button",        re: /_clear_lockout$/ },
 };
 
+// Credential filters for the roster list. Kept out of the render template so
+// the markup stays free of nested interpolation.
+const FILTERS = [
+  { key: "all", label: "All" },
+  { key: "fp", label: "Fingerprint" },
+  { key: "fc", label: "Face ID" },
+  { key: "nfc", label: "NFC" },
+];
+
 class Sdc1Card extends HTMLElement {
   constructor() {
     super();
@@ -45,6 +57,7 @@ class Sdc1Card extends HTMLElement {
     this._unsub = null;
     this._primed = false;
     this._busy = false;
+    this._filter = "all";   // all | fp | fc | nfc
   }
 
   static getStubConfig() {
@@ -144,7 +157,8 @@ class Sdc1Card extends HTMLElement {
         nfc: !!r.nfc,
       }));
     }
-    const txt = this._val("people", "");
+    const role = { all: "people", fp: "peopleFp", fc: "peopleFace", nfc: "peopleNfc" }[this._filter];
+    const txt = this._val(role, "");
     if (!txt || txt.startsWith("(")) return [];
     return txt
       .split(",")
@@ -229,6 +243,8 @@ class Sdc1Card extends HTMLElement {
           .sdc1 button.on { background: var(--primary-color); color: var(--text-primary-color,#fff);
                             border-color: var(--primary-color); }
           .sdc1 button.danger { color: var(--error-color); border-color: var(--error-color); }
+          .sdc1 .filters { gap:6px; margin-bottom:10px; }
+          .sdc1 .filters button { padding:5px 12px; font-size:.8rem; border-radius:20px; }
           .sdc1 h3 { margin:16px 0 8px; font-size:.78rem; letter-spacing:.07em;
                      text-transform:uppercase; color: var(--secondary-text-color); }
           .sdc1 ul { list-style:none; margin:0; padding:0; }
@@ -280,9 +296,19 @@ class Sdc1Card extends HTMLElement {
     const passageOn = this._val("passage") === "on";
     const lockdownOn = this._val("lockdown") === "on";
     const autoOffOn = this._val("passageAutoOff") === "on";
-    const people = this._people();
+    let people = this._people();
+    if (this._filter !== "all" && people.length && people[0].fp !== null) {
+      const key = { fp: "fp", fc: "fc", nfc: "nfc" }[this._filter];
+      people = people.filter((p) => p[key]);
+    }
     const truncated = /\+\d+ more/.test(this._val("people", ""));
     const dis = this._busy ? "disabled" : "";
+
+    const chips = FILTERS.map(
+      (f) =>
+        '<button data-filter="' + f.key + '" class="' +
+        (this._filter === f.key ? "on" : "") + '">' + f.label + "</button>"
+    ).join("");
 
     const rows = people.length
       ? people.map((p) => {
@@ -296,7 +322,11 @@ class Sdc1Card extends HTMLElement {
                     <button class="danger" data-del="${esc(p.name)}" ${dis}>Remove</button>
                   </li>`;
         }).join("")
-      : `<div class="empty">Nobody is enrolled yet.</div>`;
+      : `<div class="empty">${
+          this._filter === "all"
+            ? "Nobody is enrolled yet."
+            : "Nobody is enrolled on this reader."
+        }</div>`;
 
     this._root.innerHTML = `
       <h2>${esc(this._config.title || "Door Access")}</h2>
@@ -322,6 +352,7 @@ class Sdc1Card extends HTMLElement {
       </div>
 
       <h3>Enrolled people</h3>
+      <div class="row filters">${chips}</div>
       <ul>${rows}</ul>
 
       <h3>Add someone</h3>
@@ -340,6 +371,12 @@ class Sdc1Card extends HTMLElement {
       this._nameInput.addEventListener("input", (e) => { this._pendingName = e.target.value; });
     }
 
+    this._root.querySelectorAll("[data-filter]").forEach((b) =>
+      b.addEventListener("click", () => {
+        this._filter = b.getAttribute("data-filter");
+        this._render();
+      })
+    );
     this._root.querySelectorAll("[data-del]").forEach((b) =>
       b.addEventListener("click", () => this._deletePerson(b.getAttribute("data-del")))
     );
