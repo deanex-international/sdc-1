@@ -1,6 +1,6 @@
 {
   "name": "Deanex SDC-1",
-  "version": "5.13.0",
+  "version": "5.14.0",
   "home_assistant_domain": "esphome",
   "new_install_prompt_erase": false,
   "builds": [
@@ -8,15 +8,15 @@
       "chipFamily": "ESP32-C3",
       "parts": [
         {
-          "path": "https://github.com/deanex-international/sdc-1/releases/download/v5.13.0/SDC1-v5.13.0.factory.bin",
+          "path": "https://github.com/deanex-international/sdc-1/releases/download/v5.14.0/SDC1-v5.14.0.factory.bin",
           "offset": 0
         }
       ],
       "ota": {
-        "path": "https://github.com/deanex-international/sdc-1/releases/download/v5.13.0/SDC1-v5.13.0.ota.bin",
+        "path": "https://github.com/deanex-international/sdc-1/releases/download/v5.14.0/SDC1-v5.14.0.ota.bin",
         "md5": "bfcd0b06c966592bc6c46ad740268f66",
-        "summary": "Dropped BLE provisioning: 391KB flash and 32KB RAM reclaimed",
-        "release_url": "https://github.com/deanex-international/sdc-1/releases/tag/v5.13.0"
+        "summary": "Fingerprint-only Wi-Fi reset gesture; schedule and duress dashboard cards",
+        "release_url": "https://github.com/deanex-international/sdc-1/releases/tag/v5.14.0"
       }
     }
   ]

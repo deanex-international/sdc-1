@@ -7,7 +7,7 @@ source stays in the private repo; only this folder ships.
 ```
 sdc-1/  (public)
 ├── hacs.json              HACS reads this at the repo root
-├── sdc1-card.js           the dashboard card HACS installs
+├── sdc1-card.js           all three dashboard cards, one file
 ├── index.html             browser installer, served by GitHub Pages
 ├── README.md              becomes the HACS description
 ├── firmware/
@@ -85,6 +85,19 @@ card supersedes it.
 own `ESPHOME_VARIANT` and silently ignores builds that do not match.
 
 ---
+
+## The three cards
+
+One file, because HACS installs a single file per plugin repository:
+
+| Card | Purpose |
+|---|---|
+| `custom:sdc1-card` | Door, roster, enrollment |
+| `custom:sdc1-schedule-card` | Per-person access hours |
+| `custom:sdc1-duress-card` | Duress credentials |
+
+The schedule and duress cards read `d`, `h0` and `h1` from the
+`esphome.sdc1_roster` event, since those fields are not exposed as entities.
 
 ## Card configuration
 

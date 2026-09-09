@@ -8,11 +8,17 @@
  * No build step and no dependencies: this is a plain custom element, so HACS
  * copies one file and it works.
  *
- *   type: custom:sdc1-card
- *   prefix: sdc_1      # optional; entity_id prefix, default sdc_1
+ * Three cards ship from this one file, because HACS installs a single file per
+ * plugin repository:
+ *
+ *   type: custom:sdc1-card             door, roster, enrollment
+ *   type: custom:sdc1-schedule-card    per-person access hours
+ *   type: custom:sdc1-duress-card      duress credentials
+ *
+ * All accept an optional `prefix:` (entity_id prefix, default sdc_1).
  */
 
-const VERSION = "1.2.0";
+const VERSION = "1.3.0";
 
 // Entity suffixes this card looks for, keyed by role. Anything not found is
 // simply hidden, so a partially-configured device still renders.
@@ -419,6 +425,326 @@ window.customCards.push({
   preview: true,
   documentationURL: "https://github.com/deanex-international/sdc-1",
 });
+
+/* ===========================================================================
+ * Shared roster plumbing for the schedule and duress cards.
+ *
+ * Deliberately standalone rather than refactored out of Sdc1Card: that card is
+ * in service, and a little duplication is cheaper than the risk of breaking it.
+ *
+ * The device emits its whole database on esphome.sdc1_roster whenever it
+ * changes, including the per-person "d" (duress) and "h0"/"h1" (access window)
+ * fields. Those are not exposed as entities, so the event is the only way a
+ * card can see them.
+ * ======================================================================== */
+class Sdc1RosterCard extends HTMLElement {
+  constructor() {
+    super();
+    this._roster = null;
+    this._unsub = null;
+    this._primed = false;
+    this._busy = false;
+    this._open = null; // name of the row being edited
+  }
+
+  setConfig(config) {
+    this._config = Object.assign({ prefix: "sdc_1" }, config || {});
+  }
+
+  getCardSize() {
+    return 6;
+  }
+
+  disconnectedCallback() {
+    if (this._unsub) {
+      try { this._unsub.then((u) => u && u()); } catch (e) { /* gone already */ }
+      this._unsub = null;
+    }
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    if (!this._built) {
+      this._built = true;
+      this.innerHTML = `<ha-card><style>${SDC1_SHARED_CSS}</style><div class="sdc1"></div></ha-card>`;
+      this._root = this.querySelector(".sdc1");
+    }
+    this._subscribe();
+    this.render();
+  }
+
+  _subscribe() {
+    if (this._unsub || !this._hass.connection) return;
+    this._unsub = this._hass.connection.subscribeEvents((ev) => {
+      try {
+        const db = ev && ev.data && ev.data.db;
+        if (typeof db === "string") {
+          this._roster = JSON.parse(db);
+          this.render();
+        }
+      } catch (e) {
+        console.warn("sdc1: bad roster payload", e);
+      }
+    }, "esphome.sdc1_roster");
+
+    if (!this._primed) {
+      this._primed = true;
+      this._hass
+        .callService("esphome", this._config.prefix + "_publish_roster", {})
+        .catch(() => {});
+    }
+  }
+
+  people() {
+    return Array.isArray(this._roster) ? this._roster : [];
+  }
+
+  call(service, data) {
+    this._busy = true;
+    this.render();
+    return this._hass
+      .callService("esphome", this._config.prefix + "_" + service, data)
+      .catch((e) => console.error("sdc1:", e))
+      .finally(() => {
+        this._busy = false;
+        // The device re-emits the roster after any change, which re-renders us.
+        this._hass
+          .callService("esphome", this._config.prefix + "_publish_roster", {})
+          .catch(() => {});
+      });
+  }
+
+  waiting(msg) {
+    this._root.innerHTML =
+      `<h2>${esc(this._title)}</h2><div class="empty">${esc(msg)}</div>`;
+  }
+}
+
+const SDC1_SHARED_CSS = `
+  .sdc1 { padding: 12px 16px 16px; }
+  .sdc1 h2 { margin:0 0 2px; font-size:1.2rem; font-weight:500;
+             color:var(--primary-text-color); }
+  .sdc1 .sub { color:var(--secondary-text-color); font-size:.85rem; margin-bottom:14px; }
+  .sdc1 .note { background:var(--secondary-background-color); border-radius:10px;
+                padding:10px 12px; font-size:.82rem; line-height:1.45;
+                color:var(--secondary-text-color); margin-bottom:14px; }
+  .sdc1 .note b { color:var(--primary-text-color); }
+  .sdc1 ul { list-style:none; margin:0; padding:0; }
+  .sdc1 li { padding:10px 0; border-bottom:1px solid var(--divider-color); }
+  .sdc1 li:last-child { border-bottom:none; }
+  .sdc1 .row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .sdc1 .who { font-weight:500; color:var(--primary-text-color); }
+  .sdc1 .win { margin-left:auto; font-size:.82rem; color:var(--secondary-text-color); }
+  .sdc1 .win.set { color:var(--primary-color); font-weight:500; }
+  .sdc1 button { font:inherit; font-size:.84rem; cursor:pointer; border-radius:9px;
+                 padding:6px 12px; border:1px solid var(--divider-color);
+                 background:var(--card-background-color); color:var(--primary-text-color); }
+  .sdc1 button:hover:not(:disabled) { border-color:var(--primary-color); }
+  .sdc1 button:disabled { opacity:.45; cursor:default; }
+  .sdc1 button.primary { background:var(--primary-color); border-color:var(--primary-color);
+                         color:var(--text-primary-color,#fff); }
+  .sdc1 button.warn { color:var(--error-color); border-color:var(--error-color); }
+  .sdc1 .edit { margin-top:10px; padding:10px 12px; border-radius:10px;
+                background:var(--secondary-background-color); }
+  .sdc1 select { font:inherit; font-size:.84rem; padding:5px 8px; border-radius:8px;
+                 border:1px solid var(--divider-color);
+                 background:var(--card-background-color); color:var(--primary-text-color); }
+  .sdc1 .empty { color:var(--secondary-text-color); font-size:.86rem; padding:12px 0; }
+  .sdc1 .flag { margin-left:auto; display:flex; align-items:center; gap:8px; }
+  .sdc1 .pill { font-size:.7rem; padding:2px 8px; border-radius:20px;
+                background:var(--secondary-background-color); color:var(--secondary-text-color); }
+  .sdc1 .pill.on { background:var(--error-color); color:#fff; }
+`;
+
+/* ===========================================================================
+ * Access hours
+ * ======================================================================== */
+class Sdc1ScheduleCard extends Sdc1RosterCard {
+  constructor() {
+    super();
+    this._title = "Access Hours";
+  }
+
+  static getStubConfig() {
+    return { type: "custom:sdc1-schedule-card", prefix: "sdc_1" };
+  }
+
+  render() {
+    if (!this._root) return;
+    const people = this.people();
+    if (!people.length) {
+      this.waiting("Waiting for the roster… if this persists, call esphome." +
+                   this._config.prefix + "_publish_roster.");
+      return;
+    }
+    const dis = this._busy ? "disabled" : "";
+
+    const rows = people.map((p) => {
+      const has = typeof p.h0 === "number" && typeof p.h1 === "number";
+      const label = has ? `${pad2(p.h0)}:00 – ${pad2(p.h1)}:00` : "always";
+      const wrap = has && p.h0 > p.h1 ? " (overnight)" : "";
+      const editing = this._open === p.n;
+      let out =
+        `<li><div class="row">
+           <span class="who">${esc(p.n)}</span>
+           <span class="win ${has ? "set" : ""}">${esc(label + wrap)}</span>
+           <button data-edit="${esc(p.n)}" ${dis}>${editing ? "Close" : "Change"}</button>
+         </div>`;
+      if (editing) {
+        out += `<div class="edit">
+            <div class="row">
+              <span>From</span>${hourSelect("h0-" + p.n, has ? p.h0 : 8, 23)}
+              <span>until</span>${hourSelect("h1-" + p.n, has ? p.h1 : 18, 24)}
+              <button class="primary" data-save="${esc(p.n)}" ${dis}>Save</button>
+              <button class="warn" data-clear="${esc(p.n)}" ${dis}>Clear</button>
+            </div>
+          </div>`;
+      }
+      return out + "</li>";
+    }).join("");
+
+    this._root.innerHTML = `
+      <h2>Access Hours</h2>
+      <div class="sub">${people.length} enrolled</div>
+      <div class="note">
+        Someone outside their window is refused, but this is <b>not</b> treated as
+        an attack: it does not count toward the lockout, so one person's hours can
+        never lock everyone else out. "Always" means unrestricted. Setting
+        <b>from</b> later than <b>until</b> wraps past midnight, e.g. 22:00–06:00.
+      </div>
+      <ul>${rows}</ul>`;
+
+    this._root.querySelectorAll("[data-edit]").forEach((b) =>
+      b.addEventListener("click", () => {
+        const n = b.getAttribute("data-edit");
+        this._open = this._open === n ? null : n;
+        this.render();
+      })
+    );
+    this._root.querySelectorAll("[data-save]").forEach((b) =>
+      b.addEventListener("click", () => {
+        const n = b.getAttribute("data-save");
+        const h0 = parseInt(this._root.querySelector("#h0-" + cssId(n)).value, 10);
+        const h1 = parseInt(this._root.querySelector("#h1-" + cssId(n)).value, 10);
+        this._open = null;
+        this.call("set_schedule", { person_name: n, start_hour: h0, end_hour: h1 });
+      })
+    );
+    this._root.querySelectorAll("[data-clear]").forEach((b) =>
+      b.addEventListener("click", () => {
+        const n = b.getAttribute("data-clear");
+        this._open = null;
+        this.call("set_schedule", { person_name: n, start_hour: -1, end_hour: -1 });
+      })
+    );
+  }
+}
+
+/* ===========================================================================
+ * Duress
+ * ======================================================================== */
+class Sdc1DuressCard extends Sdc1RosterCard {
+  constructor() {
+    super();
+    this._title = "Duress Credentials";
+  }
+
+  static getStubConfig() {
+    return { type: "custom:sdc1-duress-card", prefix: "sdc_1" };
+  }
+
+  render() {
+    if (!this._root) return;
+    const people = this.people();
+    if (!people.length) {
+      this.waiting("Waiting for the roster… if this persists, call esphome." +
+                   this._config.prefix + "_publish_roster.");
+      return;
+    }
+    const dis = this._busy ? "disabled" : "";
+    const flagged = people.filter((p) => p.d === 1).length;
+
+    const rows = people.map((p) => {
+      const on = p.d === 1;
+      return `<li><div class="row">
+          <span class="who">${esc(p.n)}</span>
+          <span class="flag">
+            <span class="pill ${on ? "on" : ""}">${on ? "DURESS" : "normal"}</span>
+            <button data-toggle="${esc(p.n)}" data-to="${on ? "0" : "1"}" ${dis}>
+              ${on ? "Clear" : "Mark"}
+            </button>
+          </span>
+        </div></li>`;
+    }).join("");
+
+    this._root.innerHTML = `
+      <h2>Duress Credentials</h2>
+      <div class="sub">${flagged} of ${people.length} marked</div>
+      <div class="note">
+        A duress credential <b>opens the door exactly as normal</b>. Nothing on the
+        device, in the log or in this dashboard marks the unlock as unusual — that
+        is the point, so that someone being forced to open the door is not put at
+        further risk by a visible refusal.<br><br>
+        The only signal is the <b>esphome.sdc1_duress</b> event. Build a silent
+        automation on it: a notification, a camera snapshot, a call. <b>Do not</b>
+        make it announce itself at the door.
+      </div>
+      <ul>${rows}</ul>`;
+
+    this._root.querySelectorAll("[data-toggle]").forEach((b) =>
+      b.addEventListener("click", () => {
+        const n = b.getAttribute("data-toggle");
+        const to = b.getAttribute("data-to") === "1";
+        if (to && !window.confirm(
+              "Mark “" + n + "” as a duress credential?\n\n" +
+              "Their unlocks will look completely normal, but each one will also " +
+              "raise esphome.sdc1_duress.")) return;
+        this.call("set_duress", { person_name: n, enabled: to });
+      })
+    );
+  }
+}
+
+function pad2(n) {
+  return (n < 10 ? "0" : "") + n;
+}
+
+// Names are user-supplied, so they cannot go straight into a CSS selector.
+function cssId(name) {
+  return name.replace(/[^A-Za-z0-9_-]/g, "_");
+}
+
+function hourSelect(idBase, value, max) {
+  const parts = [];
+  for (let h = 0; h <= max; h++) {
+    parts.push(
+      '<option value="' + h + '"' + (h === value ? " selected" : "") + ">" +
+      pad2(h) + ":00</option>"
+    );
+  }
+  const id = idBase.split("-")[0] + "-" + cssId(idBase.slice(idBase.indexOf("-") + 1));
+  return '<select id="' + id + '">' + parts.join("") + "</select>";
+}
+
+customElements.define("sdc1-schedule-card", Sdc1ScheduleCard);
+customElements.define("sdc1-duress-card", Sdc1DuressCard);
+
+window.customCards.push(
+  {
+    type: "sdc1-schedule-card",
+    name: "SDC-1 Access Hours",
+    description: "Restrict each enrolled person to an hours window.",
+    preview: true,
+    documentationURL: "https://github.com/deanex-international/sdc-1",
+  },
+  {
+    type: "sdc1-duress-card",
+    name: "SDC-1 Duress",
+    description: "Mark credentials that unlock normally but raise a silent alarm.",
+    preview: true,
+    documentationURL: "https://github.com/deanex-international/sdc-1",
+  }
+);
 
 console.info(`%c SDC-1 CARD %c ${VERSION} `,
   "background:#1c2b3a;color:#fff;border-radius:3px 0 0 3px;padding:1px 4px",
