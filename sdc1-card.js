@@ -12,7 +12,7 @@
  *   prefix: sdc_1      # optional; entity_id prefix, default sdc_1
  */
 
-const VERSION = "1.1.0";
+const VERSION = "1.2.0";
 
 // Entity suffixes this card looks for, keyed by role. Anything not found is
 // simply hidden, so a partially-configured device still renders.
@@ -24,9 +24,12 @@ const WANTED = {
   lastBy:          { domain: "sensor",        re: /_last_unlocked_by$/ },
   lastAt:          { domain: "sensor",        re: /_last_unlocked_at$/ },
   people:          { domain: "sensor",        re: /_enrolled_people$/ },
-  peopleFp:        { domain: "sensor",        re: /_fingerprint_users$/ },
-  peopleFace:      { domain: "sensor",        re: /_face_id_users$/ },
-  peopleNfc:       { domain: "sensor",        re: /_nfc_users$/ },
+  // v5.10.0 named these "<reader> Users"; v5.11.0 renamed them to "Enrolled"
+  // because Home Assistant strips the sub-device name and both the list and
+  // the count then displayed as plain "Users". Match either spelling.
+  peopleFp:        { domain: "sensor",        re: /_fingerprint_(users|enrolled)$/ },
+  peopleFace:      { domain: "sensor",        re: /_face_id_(users|enrolled)$/ },
+  peopleNfc:       { domain: "sensor",        re: /_nfc_(users|enrolled)$/ },
   peopleCount:     { domain: "sensor",        re: /_registered_people$/ },
   dbUsage:         { domain: "sensor",        re: /_database_usage$/ },
   lockoutStatus:   { domain: "sensor",        re: /_lockout_status$/ },
