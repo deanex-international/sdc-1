@@ -86,18 +86,15 @@ own `ESPHOME_VARIANT` and silently ignores builds that do not match.
 
 ---
 
-## The three cards
+## The dashboard cards moved
 
-One file, because HACS installs a single file per plugin repository:
+They live in their own repository so they can be released independently:
+**https://github.com/deanex-international/sdc1-card**
 
-| Card | Purpose |
-|---|---|
-| `custom:sdc1-card` | Door, roster, enrollment |
-| `custom:sdc1-schedule-card` | Per-person access hours |
-| `custom:sdc1-duress-card` | Duress credentials |
+A card fix then ships in seconds without rebuilding firmware, and without
+offering every deployed device an update whose binary differs only in a version
+string. Customers add that repository to HACS, not this one.
 
-The schedule and duress cards read `d`, `h0` and `h1` from the
-`esphome.sdc1_roster` event, since those fields are not exposed as entities.
 
 ## Card configuration
 
