@@ -1,6 +1,6 @@
 {
   "name": "Deanex SDC-1",
-  "version": "5.14.0",
+  "version": "5.15.0",
   "home_assistant_domain": "esphome",
   "new_install_prompt_erase": false,
   "builds": [
@@ -8,15 +8,15 @@
       "chipFamily": "ESP32-C3",
       "parts": [
         {
-          "path": "https://github.com/deanex-international/sdc-1/releases/download/v5.14.0/SDC1-v5.14.0.factory.bin",
+          "path": "https://github.com/deanex-international/sdc-1/releases/download/v5.15.0/SDC1-v5.15.0.factory.bin",
           "offset": 0
         }
       ],
       "ota": {
-        "path": "https://github.com/deanex-international/sdc-1/releases/download/v5.14.0/SDC1-v5.14.0.ota.bin",
-        "md5": "bfcd0b06c966592bc6c46ad740268f66",
-        "summary": "Fingerprint-only Wi-Fi reset gesture; schedule and duress dashboard cards",
-        "release_url": "https://github.com/deanex-international/sdc-1/releases/tag/v5.14.0"
+        "path": "https://github.com/deanex-international/sdc-1/releases/download/v5.15.0/SDC1-v5.15.0.ota.bin",
+        "md5": "e5d250eac90495f124e0b4daa9fd2f47",
+        "summary": "Day-of-week schedules; Face Status on the Face ID view",
+        "release_url": "https://github.com/deanex-international/sdc-1/releases/tag/v5.15.0"
       }
     }
   ]
