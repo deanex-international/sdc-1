@@ -23,13 +23,14 @@ SOFTWARE.
 -------------------------------------------------------------------------------
 SCOPE
 
-The MIT terms above cover the Home Assistant integration code in this
-repository:
+The MIT terms above cover the documentation and the browser installer page in
+this repository:
 
-    sdc1-card.js
-    blueprints/**
     index.html
     README.md
+
+The Home Assistant dashboard cards and blueprints moved to
+https://github.com/deanex-international/sdc1-card and are MIT licensed there.
 
 They do NOT cover the SDC-1 firmware. Firmware images distributed through this
 repository or its GitHub Releases -- any file named SDC1-v*.ota.bin or
