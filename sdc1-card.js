@@ -18,7 +18,7 @@
  * All accept an optional `prefix:` (entity_id prefix, default sdc_1).
  */
 
-const VERSION = "1.3.0";
+const VERSION = "1.4.0";
 
 // Entity suffixes this card looks for, keyed by role. Anything not found is
 // simply hidden, so a partially-configured device still renders.
@@ -50,6 +50,22 @@ const WANTED = {
   cancelEnroll:    { domain: "button",        re: /_(cancel_enrollment|enroll_cancel)$/ },
   clearLockout:    { domain: "button",        re: /_clear_lockout$/ },
 };
+
+// Entity IDs follow the Home Assistant DEVICE name, which anyone can rename.
+// ESPHome registers its actions under the NODE name from the YAML, which cannot
+// be renamed from Home Assistant. Rename the device and the two diverge — the
+// entities become office_sdc_1_* while the action stays esphome.sdc_1_*.
+//
+// So never derive an action name from the entity prefix: look it up in the
+// service registry, and fall back to the prefix only if nothing matches.
+function esphomeService(hass, prefix, suffix) {
+  const svcs = (hass && hass.services && hass.services.esphome) || {};
+  const names = Object.keys(svcs).filter((s) => s.endsWith("_" + suffix));
+  if (!names.length) return prefix + "_" + suffix;
+  // Prefer one that matches the configured prefix, so several SDC-1s on one
+  // installation still target the right device.
+  return names.find((s) => s.startsWith(prefix)) || names[0];
+}
 
 // Credential filters for the roster list. Kept out of the render template so
 // the markup stays free of nested interpolation.
@@ -152,7 +168,7 @@ class Sdc1Card extends HTMLElement {
     // Ask once for a fresh roster, since the event only fires on change.
     if (!this._primed) {
       this._primed = true;
-      const svc = this._config.prefix + "_publish_roster";
+      const svc = esphomeService(this._hass, this._config.prefix, "publish_roster");
       this._hass.callService("esphome", svc, {}).catch(() => {
         // Older firmware without the action; the text sensor still works.
       });
@@ -204,7 +220,9 @@ class Sdc1Card extends HTMLElement {
       "This removes their fingerprint, face and NFC credentials from the reader."
     );
     if (!ok) return;
-    this._call("esphome", this._config.prefix + "_delete_person", { person_name: name });
+    this._call("esphome",
+      esphomeService(this._hass, this._config.prefix, "delete_person"),
+      { person_name: name });
   }
 
   _startEnroll(role) {
@@ -490,8 +508,12 @@ class Sdc1RosterCard extends HTMLElement {
     if (!this._primed) {
       this._primed = true;
       this._hass
-        .callService("esphome", this._config.prefix + "_publish_roster", {})
-        .catch(() => {});
+        .callService(
+          "esphome",
+          esphomeService(this._hass, this._config.prefix, "publish_roster"),
+          {}
+        )
+        .catch((e) => console.warn("sdc1: could not prime the roster", e));
     }
   }
 
@@ -503,13 +525,21 @@ class Sdc1RosterCard extends HTMLElement {
     this._busy = true;
     this.render();
     return this._hass
-      .callService("esphome", this._config.prefix + "_" + service, data)
+      .callService(
+        "esphome",
+        esphomeService(this._hass, this._config.prefix, service),
+        data
+      )
       .catch((e) => console.error("sdc1:", e))
       .finally(() => {
         this._busy = false;
         // The device re-emits the roster after any change, which re-renders us.
         this._hass
-          .callService("esphome", this._config.prefix + "_publish_roster", {})
+          .callService(
+            "esphome",
+            esphomeService(this._hass, this._config.prefix, "publish_roster"),
+            {}
+          )
           .catch(() => {});
       });
   }
@@ -573,8 +603,11 @@ class Sdc1ScheduleCard extends Sdc1RosterCard {
     if (!this._root) return;
     const people = this.people();
     if (!people.length) {
-      this.waiting("Waiting for the roster… if this persists, call esphome." +
-                   this._config.prefix + "_publish_roster.");
+      this.waiting(
+        "Waiting for the roster… if this persists, call esphome." +
+          esphomeService(this._hass, this._config.prefix, "publish_roster") +
+          " by hand."
+      );
       return;
     }
     const dis = this._busy ? "disabled" : "";
@@ -657,8 +690,11 @@ class Sdc1DuressCard extends Sdc1RosterCard {
     if (!this._root) return;
     const people = this.people();
     if (!people.length) {
-      this.waiting("Waiting for the roster… if this persists, call esphome." +
-                   this._config.prefix + "_publish_roster.");
+      this.waiting(
+        "Waiting for the roster… if this persists, call esphome." +
+          esphomeService(this._hass, this._config.prefix, "publish_roster") +
+          " by hand."
+      );
       return;
     }
     const dis = this._busy ? "disabled" : "";
